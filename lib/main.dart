@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'pages/chat_page.dart';
+import 'pages/cart_page.dart';
+import 'pages/checkout_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,12 +22,22 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const ProductReviewPage(),
+      routes: {
+        '/chat': (context) => const ChatPage(),
+        '/cart': (context) => const CartPage(),
+        '/checkout': (context) => CheckoutPage(
+              cartItems:
+                  ModalRoute.of(context)?.settings.arguments as List<CartItem>?,
+            ),
+      },
     );
   }
 }
 
 class ProductReviewPage extends StatefulWidget {
-  const ProductReviewPage({super.key});
+  final ProductData? product;
+
+  const ProductReviewPage({super.key, this.product});
 
   @override
   State<ProductReviewPage> createState() => _ProductReviewPageState();
@@ -36,6 +49,37 @@ class _ProductReviewPageState extends State<ProductReviewPage>
   int _currentImageIndex = 0;
   bool _isWishlisted = false;
   final PageController _pageController = PageController();
+  late ProductData _currentProduct;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _currentProduct = widget.product ?? _getDefaultProduct();
+  }
+
+  @override
+  void didUpdateWidget(ProductReviewPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.product != null && widget.product != oldWidget.product) {
+      setState(() {
+        _currentProduct = widget.product!;
+        _currentImageIndex = 0;
+        _pageController.jumpToPage(0);
+      });
+    }
+  }
+
+  ProductData _getDefaultProduct() {
+    return ProductData(
+      name: 'Premium Smart Watch Series X - AMOLED Display, GPS, Heart Rate Monitor',
+      price: 2499000,
+      originalPrice: 3299000,
+      rating: 4.5,
+      sold: '1.2rb',
+      images: productImages,
+    );
+  }
 
   final List<String> productImages = [
     'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
@@ -147,12 +191,6 @@ class _ProductReviewPageState extends State<ProductReviewPage>
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
   void dispose() {
     _tabController.dispose();
     _pageController.dispose();
@@ -244,12 +282,12 @@ class _ProductReviewPageState extends State<ProductReviewPage>
                   _currentImageIndex = index;
                 });
               },
-              itemCount: productImages.length,
+              itemCount: _currentProduct.images.length,
               itemBuilder: (context, index) {
                 return GestureDetector(
                   onTap: () => _showImageGallery(index),
                   child: Image.network(
-                    productImages[index],
+                    _currentProduct.images[index],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
@@ -269,7 +307,7 @@ class _ProductReviewPageState extends State<ProductReviewPage>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  productImages.length,
+                  _currentProduct.images.length,
                   (index) => Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     width: _currentImageIndex == index ? 24 : 8,
@@ -295,7 +333,7 @@ class _ProductReviewPageState extends State<ProductReviewPage>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${_currentImageIndex + 1}/${productImages.length}',
+                  '${_currentImageIndex + 1}/${_currentProduct.images.length}',
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ),
@@ -317,7 +355,7 @@ class _ProductReviewPageState extends State<ProductReviewPage>
           Row(
             children: [
               Text(
-                'Rp 2.499.000',
+                'Rp ${_formatPrice(_currentProduct.price)}',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -325,36 +363,38 @@ class _ProductReviewPageState extends State<ProductReviewPage>
                 ),
               ),
               const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '-24%',
-                  style: TextStyle(
-                    color: Colors.red[700],
-                    fontWeight: FontWeight.bold,
+              if (_currentProduct.originalPrice > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '-${((1 - _currentProduct.price / _currentProduct.originalPrice) * 100).toInt()}%',
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Rp 3.299.000',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-              decoration: TextDecoration.lineThrough,
+          if (_currentProduct.originalPrice > 0)
+            Text(
+              'Rp ${_formatPrice(_currentProduct.originalPrice)}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+                decoration: TextDecoration.lineThrough,
+              ),
             ),
-          ),
           const SizedBox(height: 12),
           // Product Name
-          const Text(
-            'Premium Smart Watch Series X - AMOLED Display, GPS, Heart Rate Monitor',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          Text(
+            _currentProduct.name,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 12),
           // Rating & Sold
@@ -371,7 +411,7 @@ class _ProductReviewPageState extends State<ProductReviewPage>
                     const Icon(Icons.star, color: Colors.amber, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '4.5',
+                      _currentProduct.rating.toString(),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.amber[800],
@@ -388,7 +428,7 @@ class _ProductReviewPageState extends State<ProductReviewPage>
               const SizedBox(width: 16),
               Icon(Icons.local_shipping_outlined, size: 16, color: Colors.grey[600]),
               const SizedBox(width: 4),
-              Text('1.2rb terjual', style: TextStyle(color: Colors.grey[600])),
+              Text('${_currentProduct.sold} terjual', style: TextStyle(color: Colors.grey[600])),
             ],
           ),
           const SizedBox(height: 16),
@@ -934,15 +974,41 @@ class _ProductReviewPageState extends State<ProductReviewPage>
               itemCount: similarProducts.length,
               itemBuilder: (context, index) {
                 final product = similarProducts[index];
-                return Container(
-                  width: 150,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
+                return GestureDetector(
+                  onTap: () {
+                    // Create carousel images for similar product
+                    final List<String> productCarouselImages = [
+                      product.image,
+                      product.image.replaceAll('?w=400', '?w=800&q=80'),
+                      product.image.replaceAll('unsplash.com/', 'unsplash.com/featured/'),
+                      product.image.replaceAll('photo-', 'photo-a-'),
+                    ];
+                    
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProductReviewPage(
+                          product: ProductData(
+                            name: product.name,
+                            price: int.parse(product.price.replaceAll(RegExp(r'[^0-9]'), '')),
+                            originalPrice: 0,
+                            rating: product.rating,
+                            sold: product.sold,
+                            images: productCarouselImages,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 150,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ClipRRect(
@@ -1004,7 +1070,8 @@ class _ProductReviewPageState extends State<ProductReviewPage>
                       ),
                     ],
                   ),
-                );
+                ),
+              );
               },
             ),
           ),
@@ -1034,14 +1101,27 @@ class _ProductReviewPageState extends State<ProductReviewPage>
               borderRadius: BorderRadius.circular(8),
             ),
             child: IconButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, '/chat');
+              },
               icon: const Icon(Icons.chat_outlined, color: Colors.indigo),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Produk ditambahkan ke keranjang'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  Navigator.pushNamed(context, '/cart');
+                });
+              },
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 side: const BorderSide(color: Colors.indigo),
@@ -1055,7 +1135,20 @@ class _ProductReviewPageState extends State<ProductReviewPage>
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                final cartItem = CartItem(
+                  name: _currentProduct.name,
+                  price: _currentProduct.price,
+                  quantity: 1,
+                  image: _currentProduct.images.first,
+                  variant: 'Hitam, 45mm',
+                );
+                Navigator.pushNamed(
+                  context,
+                  '/checkout',
+                  arguments: [cartItem],
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.indigo,
                 foregroundColor: Colors.white,
@@ -1106,12 +1199,12 @@ class _ProductReviewPageState extends State<ProductReviewPage>
             children: [
               PageView.builder(
                 controller: PageController(initialPage: initialIndex),
-                itemCount: productImages.length,
+                itemCount: _currentProduct.images.length,
                 itemBuilder: (context, index) {
                   return InteractiveViewer(
                     child: Center(
                       child: Image.network(
-                        productImages[index],
+                        _currentProduct.images[index],
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -1207,11 +1300,18 @@ class _ProductReviewPageState extends State<ProductReviewPage>
   void _shareProduct() {
     Share.share(
       'Check out this amazing product!\n\n'
-      'Premium Smart Watch Series X\n'
-      'Only Rp 2.499.000 (24% OFF!)\n\n'
+      '${_currentProduct.name}\n'
+      'Only Rp ${_formatPrice(_currentProduct.price)}\n\n'
       'https://shop.example.com/product/smart-watch-x',
-      subject: 'Premium Smart Watch Series X',
+      subject: _currentProduct.name,
     );
+  }
+
+  String _formatPrice(int price) {
+    return price.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        );
   }
 }
 
@@ -1254,5 +1354,23 @@ class Product {
     required this.image,
     required this.rating,
     required this.sold,
+  });
+}
+
+class ProductData {
+  final String name;
+  final int price;
+  final int originalPrice;
+  final double rating;
+  final String sold;
+  final List<String> images;
+
+  ProductData({
+    required this.name,
+    required this.price,
+    required this.originalPrice,
+    required this.rating,
+    required this.sold,
+    required this.images,
   });
 }
